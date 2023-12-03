@@ -1,3 +1,7 @@
+# Informações do Projeto
+  ## Copie a pasta AmbienteTeste no mesmo diretório do arquivo Projeto-Boca.c
+  ## Copie o arquivo Projeto-Boca.c no editor de código C desejado
+
 # TERAFAS
 
 ## 1 -> Receber dados da interface
@@ -42,3 +46,16 @@
   ### 23/11/2023 -> Navegação entre pastas 
   ### 23/11/2023 -> Correção de bugs
   ### 23/11/2023 -> Inicio da junção entre leitura de aquivos e navegação entre pastas
+
+  ### 29/11/2023 -> Correções na navegação entre pastas
+  ### 29/11/2023 -> Correção na leitura de arquivo .txt de entrada
+  ### 29/11/2023 -> Adição de informações do arquivo .txt em um array
+
+  ### 03/12/2023 -> Correção de bugs
+  ### 03/12/2023 -> Adição de leitura do caminho code
+  ### 03/12/2023 -> Adição de leitura do caminho saidasEsperadas
+  ### 03/12/2023 -> Adição de leitura dos arquivos do diretorio code
+  ### 03/12/2023 -> Adição de leitura dos arquivos do diretorio saidasEsperadas
+  ### 03/12/2023 -> Readequação da estrutura de arquivos
+  ### 03/12/2023 -> Salvamento do resultado das leituras do diretorio code
+  ### 03/12/2023 -> Salvamento do resultado das leituras do diretorio saidasEsperadas
