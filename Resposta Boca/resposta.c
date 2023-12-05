@@ -41,9 +41,9 @@ int main() {
 
     // Verifique o resultado da comparação
     if (comparacao == 0) {
-        printf("As saídas são iguais.\n");
+        printf("Todos os Casos de teste estão corretos!\n");
     } else {
-        printf("As saídas são diferentes.\n");
+        printf("Não foi possivel passar em todos os casos de teste. Revisar o codigo!\n");
     }
 
     return 0;
