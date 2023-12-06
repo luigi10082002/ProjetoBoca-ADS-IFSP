@@ -59,3 +59,16 @@
   ### 03/12/2023 -> Readequação da estrutura de arquivos
   ### 03/12/2023 -> Salvamento do resultado das leituras do diretorio code
   ### 03/12/2023 -> Salvamento do resultado das leituras do diretorio saidasEsperadas
+
+## Vinicius
+  ### 05/12/2023 -> Inicio do script de execução do codigo
+  ### 05/12/2023 -> Corrção para gerar executavel
+  ### 05/12/2023 -> Geração de arquivo temporario
+  ### 05/12/2023 -> Execução de codigo funcioanndo
+  ### 05/12/2023 -> Geração de arquivo .txt temporario para armazenamento de saidas do codigo executado
+
+## Arthur
+  ### 04/12/2023 -> Inicio da interface de resultados
+  
+  ### 05/12/2023 -> Correções da interface de resultados
+  ### 05/12/2023 -> Leitura de arquivo de resposta

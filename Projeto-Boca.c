@@ -122,6 +122,8 @@ char** readAllFiles(const char *diretorio) {
     return resultados;
 }
 
+
+
 int main() {
 	int i;
 	
@@ -129,6 +131,9 @@ int main() {
     char caminhoCode[] = "/code";
     char caminhoEntradas[] = "/entrada";
     char caminhoSaidasEsperadas[] = "/saidaEsperada";
+    
+    //char execCode[] = "gcc -o temp_executable ";
+    
     char op[100];
     char nomeArquivoEscolhido[100];
 
@@ -155,18 +160,76 @@ int main() {
 
     // Chama a funcao para ler o conteudo do arquivo e armazenar no array
     int resultado = readFile(caminho, nomeArquivoEscolhido, conteudoArray, &numLinhas);
-
+	
     // Verifica se a leitura do arquivo foi bem-sucedida
     if (resultado == 0) {
-        printf("Leitura do arquivo concluida com sucesso.\n");
+        //printf("Leitura do arquivo concluida com sucesso.\n");
 
-        // Imprime as linhas lidas do arquivo
-        for (i = 0; i < numLinhas; i++) {
-            printf("%s", conteudoArray[i]);
-        }
-    } else {
-        printf("Erro na leitura do arquivo.\n");
+		// Concatena o caminho completo do arquivo code.txt
+	    int tamanhoCodeTxt = strlen(caminhoArquivo) + strlen(op) + strlen(caminhoCode) + strlen("/code.txt") + 1;
+	    char concatCaminhoCodeTxt[tamanhoCodeTxt];
+	    snprintf(concatCaminhoCodeTxt, sizeof(concatCaminhoCodeTxt), "%s%s%s%s", caminhoArquivo, op, caminhoCode, "/code.txt");
+	
+	    const char *caminhoCodeTxt = concatCaminhoCodeTxt;
+	
+	    // Comando para compilar o código
+	    char comandoCompilar[100];
+	    snprintf(comandoCompilar, sizeof(comandoCompilar), "gcc -o temp_executable temp_code.c");
+	
+	    // Cria um arquivo temporário para armazenar o código do arquivo code.txt
+	    FILE *tempFile = fopen("temp_code.c", "w");
+	    if (tempFile == NULL) {
+	        fprintf(stderr, "Erro ao criar o arquivo temporário.\n");
+	        return 1;
+	    }
+	
+	    // Lê o conteúdo do arquivo code.txt e grava no arquivo temporário
+	    char linha[1000];
+	    FILE *codeFile = fopen(caminhoCodeTxt, "r");
+	    if (codeFile == NULL) {
+	        fprintf(stderr, "Erro ao abrir o arquivo %s.\n", caminhoCodeTxt);
+	        return 1;
+	    }
+	
+	    while (fgets(linha, sizeof(linha), codeFile) != NULL) {
+	        fputs(linha, tempFile);
+	    }
+	
+	    fclose(codeFile);
+	    fclose(tempFile);
+	
+	    // Executa o comando de compilação
+	    if (system(comandoCompilar) == 0) {
+	        // Comando de compilação bem-sucedido
+	        printf("Compilacao concluida com sucesso.\n");
+	        
+	
+	       // Redireciona a saída para um arquivo temporário
+        	system("./temp_executable > temp_output.txt");
+
+	        // Lê o arquivo temporário com a saída do programa compilado
+	        FILE *outputFile = fopen("temp_output.txt", "r");
+	        if (outputFile == NULL) {
+	            fprintf(stderr, "Erro ao abrir o arquivo temporário de saída.\n");
+	            return 1;
+	        }
+	
+	        // Exibe ou armazena a saída do programa compilado
+	        while (fgets(linha, sizeof(linha), outputFile) != NULL) {
+	            printf("%s", linha);
+	        }
+	
+	        fclose(outputFile);
+	    } else {
+	        // Erro na compilação
+	        fprintf(stderr, "Erro na compilação do código.\n");
+	    }
     }
+	
+    // Remove o arquivo temporário
+    remove("temp_code.c");
+    remove("temp_executable");
+    remove("temp_output.txt");
 
     // Libera a memoria alocada para cada linha
     for (i = 0; i < numLinhas; i++) {
@@ -217,6 +280,10 @@ int main() {
 
     // Libera a memoria alocada para o array de resultados
     free(resultadosSaidasEsperadasArquivos);
+
+
+    
+	//compilarExecutarCodigo(conteudoArray);
 
     // ... O restante do seu codigo permanece inalterado
 
