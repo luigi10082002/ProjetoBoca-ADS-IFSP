@@ -2,30 +2,112 @@
 #include <string.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
-#define MAX_ARQUIVOS 1000
-#define MAX_TAMANHO_CONTEUDO 10000
+#define MAX_TAMANHO_CAMINHO 256
+#define MAX_TAMANHO_LINHA 1000
 
-// Funcaoo para imprimir os arquivos em um diretorio
-void printFilesInDirectory(const char *caminho) {
-    DIR *diretorio = opendir(caminho);
+// Enumeracao para representar opcoes de continuacao
+enum OpcaoContinuar {
+    CONTINUAR_SIM = 's',
+    CONTINUAR_NAO = 'n',
+};
 
-    if (diretorio) {
-        struct dirent *entrada;
-        while ((entrada = readdir(diretorio)) != NULL) {
-            printf("%s\n", entrada->d_name);
-        }
+// Estrutura para armazenar configuracoes
+typedef struct {
+    char diretorioPrincipal[MAX_TAMANHO_CAMINHO];
+    char caminhoCode[MAX_TAMANHO_CAMINHO];
+    char caminhoEntradas[MAX_TAMANHO_CAMINHO];
+    char caminhoSaidasEsperadas[MAX_TAMANHO_CAMINHO];
+} Configuracoes;
 
-        closedir(diretorio);
-    } else {
-        perror("Erro ao abrir o diretorio");
+// Funcao para liberar a memoria alocada para o conteudoArray
+void liberarMemoriaConteudoArray(char *conteudoArray[], int numLinhas) {
+	int i;
+    for (i = 0; i < numLinhas; i++) {
+        free(conteudoArray[i]);
     }
 }
 
-// Funcaoo para ler o conteudo de um arquivo e armazenar em um array
+// Funcao para comparar duas strings ignorando espaï¿½os em branco no inicio e no final
+int compararStringsIgnorandoEspacos(const char *str1, const char *str2) {
+    while (isspace(*str1)) {
+        str1++;
+    }
+
+    while (isspace(*str2)) {
+        str2++;
+    }
+
+    while (*str1 != '\0' && *str2 != '\0' && *str1 == *str2) {
+        str1++;
+        str2++;
+    }
+
+    // Ignora espacos no final das strings
+    while (isspace(*str1)) {
+        str1++;
+    }
+
+    while (isspace(*str2)) {
+        str2++;
+    }
+
+    // Retorna a diferenca entre os caracteres, se houver
+    return (*str1 - *str2);
+}
+
+// Funcao para realizar a compilacao do codigo
+int realizarCompilacao(const char *caminhoCodeTxt) {
+    char comandoCompilar[MAX_TAMANHO_CAMINHO + 50];
+    snprintf(comandoCompilar, sizeof(comandoCompilar), "gcc -o temp_executable %s", caminhoCodeTxt);
+
+    if (system(comandoCompilar) == 0) {
+        printf("Compilaï¿½ï¿½o concluida com sucesso.\n");
+
+        system("./temp_executable > temp_output.txt");
+
+        FILE *outputFile = fopen("temp_output.txt", "r");
+        if (outputFile == NULL) {
+            fprintf(stderr, "Erro ao abrir o arquivo temporario de saida.\n");
+            return 1;
+        }
+
+        char linha[MAX_TAMANHO_LINHA];
+        while (fgets(linha, sizeof(linha), outputFile) != NULL) {
+            printf("%s", linha);
+        }
+
+        fclose(outputFile);
+    } else {
+        fprintf(stderr, "Erro na compilacao do codigo.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+// Funcao para realizar a comparacao entre a saida e a saida esperada
+bool realizarComparacao(const char *saida, const char *saidaEsperada) {
+    printf("Saida do programa:\n%s", saida);
+    printf("Saida esperada:\n%s", saidaEsperada);
+
+    int resultadoComparacao = compararStringsIgnorandoEspacos(saida, saidaEsperada);
+
+    if (resultadoComparacao == 0) {
+        printf("As saidas coincidem. Teste bem-sucedido!\n");
+        return true;
+    } else {
+        printf("As saidas nao coincidem. Teste falhou.\n");
+        return false;
+    }
+}
+
+// Funï¿½ï¿½o para ler o conteï¿½do de um arquivo e armazenar em um array
 int readFile(const char *caminho, const char *nomeArquivo, char *conteudoArray[], int *linhas) {
-    char caminhoCompleto[256];
+    char caminhoCompleto[MAX_TAMANHO_LINHA];
     snprintf(caminhoCompleto, sizeof(caminhoCompleto), "%s/%s", caminho, nomeArquivo);
 
     FILE *arquivo = fopen(caminhoCompleto, "r");
@@ -35,7 +117,7 @@ int readFile(const char *caminho, const char *nomeArquivo, char *conteudoArray[]
         return 1;  // Indica erro
     }
 
-    char linha[256];
+    char linha[MAX_TAMANHO_LINHA];
     int contadorLinhas = 0;
 
     // le cada linha do arquivo e armazena no array
@@ -54,238 +136,76 @@ int readFile(const char *caminho, const char *nomeArquivo, char *conteudoArray[]
     return 0;  // Indica sucesso
 }
 
-char** readAllFiles(const char *diretorio) {
-    DIR *dir;
-    struct dirent *entrada;
+// Funcao principal
+int main() {
+    Configuracoes config = {
+        .diretorioPrincipal = "./AmbienteTeste/",  // Diretorio principal onde todas as questoes estao localizadas
+        .caminhoCode = "/code",
+        .caminhoEntradas = "/entrada",
+        .caminhoSaidasEsperadas = "/saidaEsperada",
+    };
 
-    // Aloca espaco para armazenar os resultados
-    char **resultados = (char **)malloc(MAX_ARQUIVOS * sizeof(char *));
-    int num_resultados = 0;
+    char opcaoContinuar;
 
-    // Abre o diretorio
-    dir = opendir(diretorio);
+    char *conteudoArray[100];  // Declare antes do loop do-while
+    char nomeQuestao[100];     // Ajuste o tamanho conforme necessï¿½rio
+    char nomeArquivoCode[100]; // Adicao para o nome do arquivo de codigo
 
-    // Verifica se o diretorio foi aberto com sucesso
-    if (dir == NULL) {
-        perror("Erro ao abrir o diretorio");
-        exit(EXIT_FAILURE);
-    }
+    printf("Bem vindo ao programa de teste.\n");
 
-    // Itera sobre cada entrada no diretorio
-    while ((entrada = readdir(dir)) != NULL) {
-        // Ignora as entradas "." e ".."
-        if (strcmp(entrada->d_name, ".") != 0 && strcmp(entrada->d_name, "..") != 0) {
-            char caminho_completo[PATH_MAX];
-            snprintf(caminho_completo, sizeof(caminho_completo), "%s/%s", diretorio, entrada->d_name);
+    do {
+        printf("Digite o nome da questao: ");
+        scanf("%99s", nomeQuestao); // Garanta que o tamanho nï¿½o exceda 99 caracteres
 
-            // Verifica se a entrada e um arquivo (nao um diretorio)
-            struct stat st;
-            if (stat(caminho_completo, &st) == 0 && S_ISREG(st.st_mode)) {
-                FILE *arquivo = fopen(caminho_completo, "r");
+        // Adiciona o nome da questï¿½o aos caminhos especï¿½ficos
+        snprintf(config.caminhoCode, sizeof(config.caminhoCode), "%s%s/code", config.diretorioPrincipal, nomeQuestao);
+        snprintf(config.caminhoEntradas, sizeof(config.caminhoEntradas), "%s%s/entrada", config.diretorioPrincipal, nomeQuestao);
+        snprintf(config.caminhoSaidasEsperadas, sizeof(config.caminhoSaidasEsperadas), "%s%s/saidaEsperada", config.diretorioPrincipal, nomeQuestao);
 
-                // Verifica se o arquivo foi aberto com sucesso
-                if (arquivo == NULL) {
-                    perror("Erro ao abrir o arquivo");
-                    exit(EXIT_FAILURE);
+        printf("Digite o nome do arquivo de codigo: ");
+        scanf("%99s", nomeArquivoCode);
+
+        if (nomeQuestao[0] == '\0' || nomeArquivoCode[0] == '\0') {
+            printf("Nome da questao ou nome do arquivo de codigo invalido. Tente novamente.\n");
+            continue;
+        }
+
+        char caminhoCodeTxt[MAX_TAMANHO_CAMINHO + MAX_TAMANHO_CAMINHO + 10];
+        snprintf(caminhoCodeTxt, sizeof(caminhoCodeTxt), "%s/%s.txt", config.caminhoCode, nomeArquivoCode);
+
+        if (realizarCompilacao(caminhoCodeTxt) == 0) {
+            char caminhoSaidaEsperada[MAX_TAMANHO_CAMINHO + MAX_TAMANHO_CAMINHO + 20];
+            snprintf(caminhoSaidaEsperada, sizeof(caminhoSaidaEsperada), "%s/saidaEsperada.txt", config.caminhoSaidasEsperadas);
+
+            char *saidaEsperadaArray[100];
+            int numLinhasSaidaEsperada = 0;
+
+            int resultadoLeituraSaidaEsperada = readFile(caminhoSaidaEsperada, "saidaEsperada.txt", saidaEsperadaArray, &numLinhasSaidaEsperada);
+
+            if (resultadoLeituraSaidaEsperada == 0) {
+                // Realiza a comparaï¿½ï¿½o entre a saï¿½da e a saï¿½da esperada
+                char caminhoSaida[MAX_TAMANHO_CAMINHO + MAX_TAMANHO_CAMINHO + 20];
+                snprintf(caminhoSaida, sizeof(caminhoSaida), "%s/saida.txt", config.caminhoEntradas);
+
+                int numLinhasSaida = 0;
+                int resultadoLeituraSaida = readFile(caminhoSaida, "saida.txt", conteudoArray, &numLinhasSaida);
+
+                if (resultadoLeituraSaida == 0) {
+                    realizarComparacao(conteudoArray[0], saidaEsperadaArray[0]);
+
+                    // Libera a memï¿½ria alocada para cada linha da saï¿½da esperada
+                    liberarMemoriaConteudoArray(saidaEsperadaArray, numLinhasSaidaEsperada);
                 }
-
-                // Aloca espaco para armazenar o conteudo do arquivo
-                char *conteudo = (char *)malloc(MAX_TAMANHO_CONTEUDO * sizeof(char));
-                if (conteudo == NULL) {
-                    perror("Erro ao alocar memoria");
-                    exit(EXIT_FAILURE);
-                }
-
-                // Le o conteudo do arquivo
-                int pos = 0;
-                char caractere;
-                while ((caractere = fgetc(arquivo)) != EOF) {
-                    conteudo[pos++] = caractere;
-                }
-
-                // Adiciona o conteudo ao array de resultados
-                conteudo[pos] = '\0';  // Adiciona o caractere nulo ao final do conteudo
-                resultados[num_resultados++] = conteudo;
-
-                // Fecha o arquivo
-                fclose(arquivo);
             }
         }
-    }
 
-    // Fecha o diretorio
-    closedir(dir);
+        printf("Deseja continuar (S/n)? ");
+        scanf(" %c", &opcaoContinuar);
 
-    // Adiciona um marcador de final ao array de resultados
-    resultados[num_resultados] = NULL;
+    } while (opcaoContinuar == CONTINUAR_SIM);
 
-    return resultados;
-}
-
-
-
-int main() {
-	int i;
-	
-    char caminhoArquivo[] = "./AmbienteTeste/";
-    char caminhoCode[] = "/code";
-    char caminhoEntradas[] = "/entrada";
-    char caminhoSaidasEsperadas[] = "/saidaEsperada";
-    
-    //char execCode[] = "gcc -o temp_executable ";
-    
-    char op[100];
-    char nomeArquivoEscolhido[100];
-
-    printf("Digite em maiusculo a questao: ");
-    scanf("%99s", op);
-
-    int tamanho = strlen(caminhoArquivo) + strlen(op) + strlen(caminhoCode) + 1;
-    char concatCaminho[tamanho];
-    snprintf(concatCaminho, sizeof(concatCaminho), "%s%s%s", caminhoArquivo, op, caminhoCode);
-
-    const char *caminho = concatCaminho;
-
-    // Chama a funcao para imprimir os arquivos no diretorio
-    printFilesInDirectory(caminho);
-
-    printf("Digite o nome do arquivo que deseja ler (incluindo a extensao .txt): ");
-    scanf("%99s", nomeArquivoEscolhido);
-
-    // Array para armazenar as linhas do arquivo
-    char *conteudoArray[100];  // Defina um tamanho apropriado
-
-    // Variavel para armazenar o numero total de linhas
-    int numLinhas = 0;
-
-    // Chama a funcao para ler o conteudo do arquivo e armazenar no array
-    int resultado = readFile(caminho, nomeArquivoEscolhido, conteudoArray, &numLinhas);
-	
-    // Verifica se a leitura do arquivo foi bem-sucedida
-    if (resultado == 0) {
-        //printf("Leitura do arquivo concluida com sucesso.\n");
-
-		// Concatena o caminho completo do arquivo code.txt
-	    int tamanhoCodeTxt = strlen(caminhoArquivo) + strlen(op) + strlen(caminhoCode) + strlen("/code.txt") + 1;
-	    char concatCaminhoCodeTxt[tamanhoCodeTxt];
-	    snprintf(concatCaminhoCodeTxt, sizeof(concatCaminhoCodeTxt), "%s%s%s%s", caminhoArquivo, op, caminhoCode, "/code.txt");
-	
-	    const char *caminhoCodeTxt = concatCaminhoCodeTxt;
-	
-	    // Comando para compilar o código
-	    char comandoCompilar[100];
-	    snprintf(comandoCompilar, sizeof(comandoCompilar), "gcc -o temp_executable temp_code.c");
-	
-	    // Cria um arquivo temporário para armazenar o código do arquivo code.txt
-	    FILE *tempFile = fopen("temp_code.c", "w");
-	    if (tempFile == NULL) {
-	        fprintf(stderr, "Erro ao criar o arquivo temporário.\n");
-	        return 1;
-	    }
-	
-	    // Lê o conteúdo do arquivo code.txt e grava no arquivo temporário
-	    char linha[1000];
-	    FILE *codeFile = fopen(caminhoCodeTxt, "r");
-	    if (codeFile == NULL) {
-	        fprintf(stderr, "Erro ao abrir o arquivo %s.\n", caminhoCodeTxt);
-	        return 1;
-	    }
-	
-	    while (fgets(linha, sizeof(linha), codeFile) != NULL) {
-	        fputs(linha, tempFile);
-	    }
-	
-	    fclose(codeFile);
-	    fclose(tempFile);
-	
-	    // Executa o comando de compilação
-	    if (system(comandoCompilar) == 0) {
-	        // Comando de compilação bem-sucedido
-	        printf("Compilacao concluida com sucesso.\n");
-	        
-	
-	       // Redireciona a saída para um arquivo temporário
-        	system("./temp_executable > temp_output.txt");
-
-	        // Lê o arquivo temporário com a saída do programa compilado
-	        FILE *outputFile = fopen("temp_output.txt", "r");
-	        if (outputFile == NULL) {
-	            fprintf(stderr, "Erro ao abrir o arquivo temporário de saída.\n");
-	            return 1;
-	        }
-	
-	        // Exibe ou armazena a saída do programa compilado
-	        while (fgets(linha, sizeof(linha), outputFile) != NULL) {
-	            printf("%s", linha);
-	        }
-	
-	        fclose(outputFile);
-	    } else {
-	        // Erro na compilação
-	        fprintf(stderr, "Erro na compilação do código.\n");
-	    }
-    }
-	
-    // Remove o arquivo temporário
-    remove("temp_code.c");
-    remove("temp_executable");
-    remove("temp_output.txt");
-
-    // Libera a memoria alocada para cada linha
-    for (i = 0; i < numLinhas; i++) {
-        free(conteudoArray[i]);
-    }
-    	
-	int tamanhoEntradas = strlen(caminhoArquivo) + strlen(op) + strlen(caminhoEntradas) + 1;
-    char concatCaminhoEntradas[tamanhoEntradas];
-    snprintf(concatCaminhoEntradas, sizeof(concatCaminhoEntradas), "%s%s%s", caminhoArquivo, op, caminhoEntradas);
-
-    const char *caminhoEntradasArquivos = concatCaminhoEntradas;
-        
-	char **resultadosEntradas = readAllFiles(caminhoEntradasArquivos);
-    
-    printf("==================================================\n");
-    printf("Entradas\n");
-    printf("==================================================\n");
-
-    // Imprime os resultados
-    for (i = 0; resultadosEntradas[i] != NULL; i++) {
-        printf("Conteudo do arquivo %d:\n%s\n", i + 1, resultadosEntradas[i]);
-        printf("==================================================\n");
-        free(resultadosEntradas[i]); // Libera a memÃƒÂ³ria alocada para cada conteÃƒÂºdo
-    }
-    
-    // Libera a memoria alocada para o array de resultados
-    free(resultadosEntradas);
-    
-    int tamanhoSaidasEsperadas = strlen(caminhoArquivo) + strlen(op) + strlen(caminhoSaidasEsperadas) + 1;
-    char concatCaminhoSaidasEsperadas[tamanhoSaidasEsperadas];
-    snprintf(concatCaminhoSaidasEsperadas, sizeof(concatCaminhoSaidasEsperadas), "%s%s%s", caminhoArquivo, op, caminhoSaidasEsperadas);
-
-    const char *caminhoSaidasEsperadasArquivos = concatCaminhoSaidasEsperadas;
-        
-	char **resultadosSaidasEsperadasArquivos = readAllFiles(caminhoSaidasEsperadasArquivos);
-    
-    printf("==================================================\n");
-    printf("Saidas Esperadas\n");
-    printf("==================================================\n");
-
-
-    // Imprime os resultados
-    for (i = 0; resultadosSaidasEsperadasArquivos[i] != NULL; i++) {
-        printf("Conteudo do arquivo %d:\n%s\n", i + 1, resultadosSaidasEsperadasArquivos[i]);
-        printf("==================================================\n");
-        free(resultadosSaidasEsperadasArquivos[i]); // Libera a memÃƒÂ³ria alocada para cada conteÃƒÂºdo
-    }
-
-    // Libera a memoria alocada para o array de resultados
-    free(resultadosSaidasEsperadasArquivos);
-
-
-    
-	//compilarExecutarCodigo(conteudoArray);
-
-    // ... O restante do seu codigo permanece inalterado
+    // Libera a memï¿½ria alocada para os resultados
+    liberarMemoriaConteudoArray(conteudoArray, 1);
 
     return 0;
 }
